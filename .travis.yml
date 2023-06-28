@@ -1,0 +1,79 @@
+dist: focal
+language: node_js
+
+node_js:
+  - 14
+
+cache:
+  directories:
+    - node_modules
+
+env:
+  global:
+    - COMMIT_HASH=$(git rev-parse HEAD)
+    - ENVIRONMENT=$(if [[ $TRAVIS_TAG =~ [0-9]+\.[0-9]+\.[0-9]+-qa.* ]]; then echo "qa"; elif [[ $TRAVIS_TAG =~ [0-9]+\.[0-9]+\.[0-9]+-staging.* ]]; then echo "staging"; elif [[ $TRAVIS_TAG =~ [0-9]+\.[0-9]+\.[0-9]+-prod.* ]]; then echo "prod"; else echo "dev"; fi;)
+
+stages:
+  - name: static_analysis
+    if: NOT (branch = production OR tag =~ /\d+\.\d+\.\d+-qa.*/ OR tag =~ /\d+\.\d+\.\d+-staging.*/ OR tag =~ /\d+\.\d+\.\d+-uat.*/ OR tag =~ /\d+\.\d+\.\d+-prod.*/)
+  - name: build
+    if: (branch = development AND NOT type = pull_request) OR (tag =~ /\d+\.\d+\.\d+-qa.*/ OR tag =~ /\d+\.\d+\.\d+-staging.*/ OR tag =~ /\d+\.\d+\.\d+-uat.*/)
+  - name: build_prod
+    if: (tag =~ /\d+\.\d+\.\d+-prod.*/)
+  - name: deploy
+    if: (branch = development AND NOT type = pull_request) OR (tag =~ /\d+\.\d+\.\d+-staging.*/) OR (tag =~ /\d+\.\d+\.\d+-prod.*/)
+
+jobs:
+  include:
+    - stage: "static_analysis"
+      name: "SonarCloud"
+      script:
+        - echo "Running Sonarcloud"
+    - stage: "static_analysis"
+      name: "static_scanners"
+      script:
+        - echo "Running Trivi"
+
+    - stage: "build"
+      name: "Build"
+      script:
+        - echo $ENVIRONMENT
+        - echo $API_ENDPOINT
+        - echo $COMMIT_HASH
+        - echo $TRAVIS_TAG
+        - echo $TRAVIS_BUILD_ID
+        - echo "Building"
+
+    - stage: "build_prod"
+      name: "Build_Prod"
+      script:
+        - echo $ENVIRONMENT
+        - echo $API_ENDPOINT
+        - echo $COMMIT_HASH
+        - echo $TRAVIS_TAG
+        - echo $TRAVIS_BUILD_ID
+        - echo "building prod"	
+
+    - stage: "deploy"
+      name: "Deploy to DEV"
+      script:
+        - echo "deploy dev"       
+      if: branch = development AND NOT type = pull_request AND NOT (tag =~ /\d+\.\d+\.\d+-prod.*/)
+
+    - stage: "deploy"
+      name: "Deploy to QA"
+      script:
+        - echo "deploy qa"
+      if: (tag =~ /\d+\.\d+\.\d+-qa.*/)
+
+    - stage: "deploy"
+      name: "Deploy to Staging"
+      script:
+        - echo "deploy staging"
+      if: tag =~ /\d+\.\d+\.\d+-staging.*/
+
+    - stage: "deploy"
+      name: "Deploy to Prod"
+      script:
+        - echo "deploy prod"
+      if: tag =~ /\d+\.\d+\.\d+-prod.*/
